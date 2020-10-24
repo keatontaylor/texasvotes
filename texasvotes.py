@@ -9,7 +9,7 @@ import csv
 import string
 
 DOWNLOAD_URL = "https://earlyvoting.texas-election.com/Elections/downloadVoterInfoReport.do"
-ELASTIC_URL = "elasticsearch-sample-es-http"
+ELASTIC_URL = "elasticsearch-es-http"
 ELASTIC_CREDENTIALS = ('elastic', os.getenv('elastic'))
 ELASTIC_CA_FILE = "http-certs/ca.crt"
 ELASTIC_INDEX = "texas-votes"
