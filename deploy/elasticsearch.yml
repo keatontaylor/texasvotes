@@ -1,0 +1,83 @@
+# Maifest file to generate a preconfigured ElasticSearch and Kibana instance.
+# Will also configure a cronjob to ingest voter data daily into elastic.
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: elasticsearch
+spec:
+  version: 7.9.3
+  nodeSets:
+  - name: default
+    count: 3
+    config:
+      node.store.allow_mmap: false
+---
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: kibana
+spec:
+  version: 7.9.3
+  count: 3
+  elasticsearchRef:
+    name: "elasticsearch"
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: download-state-data-cron
+spec:
+  schedule: "5 14 * * *"
+  startingDeadlineSeconds: 20
+  successfulJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      completions: 1
+      template:
+        spec:
+          containers:
+          - name: download-state-data
+            image: python:3.8.1-slim
+            command: ["/bin/sh"]
+            args: ["-c", "mkdir texas; pip3 install requests; pip3 install elasticsearch; python /code/texasvotes.py"]
+            envFrom:
+            - secretRef:
+                name: elasticsearch-es-elastic-user
+            volumeMounts:
+            - name: configmap
+              mountPath: /code
+            - name: elastic-internal-http-certificates
+              mountPath: /http-certs
+          restartPolicy: Never
+          volumes:
+            - name: configmap
+              configMap:
+                name: state-voter-download-script
+            - name: elastic-internal-http-certificates
+              secret:
+                defaultMode: 420
+                optional: false
+                secretName: elasticsearch-es-http-certs-internal
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: kibana-ingress
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_input_headers "Authorization: Basic cmVhZG9ubHk6cmVhZG9ubHk="; # pass in auth for our read only user
+spec:
+  tls:
+  - hosts:
+    - texasvotes.invertedorigin.com
+    secretName: cloudflare-tls
+  rules:
+  - host: texasvotes.invertedorigin.com
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: kibana-kb-http
+          servicePort: 5601
