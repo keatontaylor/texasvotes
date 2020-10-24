@@ -6,6 +6,8 @@ Code of infrastructure, scripts and Kibana dashboards to collect and index early
 * A Kubernetes Ingress Controller - https://kubernetes.github.io/ingress-nginx/
 
 ## Installation
+```
 git clone git@github.com:keatontaylor/texasvotes.git
 cd deploy
 kubectl apply -f .
+```
